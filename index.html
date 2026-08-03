@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🍄 蘑菇勇士大冒险 - Mushroom Hero Adventure</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(100, 200, 255, 0.3);
+            background: #1a1a2e;
+        }
+        /* 移动端虚拟摇杆 */
+        #mobileControls {
+            display: none;
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            justify-content: space-between;
+            padding: 0 30px;
+            pointer-events: none;
+            z-index: 20;
+        }
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            pointer-events: auto;
+        }
+        .ctrl-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.25);
+            border: 2px solid rgba(255,255,255,0.5);
+            color: #fff;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-user-select: none;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .ctrl-btn:active { background: rgba(255,255,255,0.5); }
+        #dpad { display: flex; gap: 8px; align-items: center; pointer-events: auto; }
+        .dpad-btn {
+            width: 50px; height: 50px; border-radius: 12px;
+            background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4);
+            color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center;
+            -webkit-user-select: none; cursor: pointer;
+        }
+        .dpad-btn:active { background: rgba(255,255,255,0.45); }
+
+        /* 开始/结束画面覆盖层 */
+        #overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(10,10,30,0.85); border-radius: 12px;
+            color: #fff; z-index: 10; backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+        }
+        #overlay h1 { font-size: 42px; margin-bottom: 10px; text-shadow: 0 0 20px rgba(255,180,50,0.6); text-align: center; }
+        #overlay h2 { font-size: 22px; margin-bottom: 20px; color: #ffd700; }
+        #overlay p { font-size: 16px; margin-bottom: 8px; color: #ccc; text-align: center; }
+        #overlay button {
+            margin-top: 20px; padding: 14px 40px; font-size: 20px; border: none; border-radius: 30px;
+            background: linear-gradient(135deg, #ff6b6b, #ffa500); color: #fff; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255,100,0,0.4); transition: transform 0.2s;
+        }
+        #overlay button:hover { transform: scale(1.05); }
+        #overlay button:active { transform: scale(0.95); }
+        .hidden { display: none !important; }
+
+        /* 关卡提示 */
+        #levelBanner {
+            position: absolute; top: 30%; left: 50%; transform: translate(-50%,-50%);
+            font-size: 36px; color: #ffd700; text-shadow: 0 0 15px rgba(255,200,0,0.7);
+            z-index: 5; pointer-events: none; opacity: 0; transition: opacity 0.5s;
+            font-weight: bold;
+        }
+
+        /* 错误提示 */
+        #errorBox {
+            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            background: #d32f2f; color: #fff; padding: 20px 30px; border-radius: 10px;
+            z-index: 100; max-width: 80%; text-align: center; font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+<div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <!-- 移动端控制 -->
+    <div id="mobileControls">
+        <div id="dpad">
+            <div class="dpad-btn" id="btnLeft">◀</div>
+            <div class="dpad-btn" id="btnRight">▶</div>
+        </div>
+        <div class="btn-group">
+            <div class="ctrl-btn" id="btnJump">▲</div>
+            <div class="ctrl-btn" id="btnAttack">⚔</div>
+        </div>
+    </div>
+
+    <!-- 关卡横幅 -->
+    <div id="levelBanner"></div>
+
+    <!-- 覆盖层（开始/结束） -->
+    <div id="overlay">
+        <h1 id="overlayTitle">🍄 蘑菇勇士大冒险</h1>
+        <h2 id="overlaySubtitle">Mushroom Hero Adventure</h2>
+        <p id="overlayDesc">帮助小蘑菇勇士收集所有宝石，击败邪恶怪物！</p>
+        <p style="font-size:13px;color:#999;">操作：← → 移动 | 空格/W 跳跃 | J 攻击</p>
+        <button id="overlayBtn">开始冒险</button>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="errorBox"></div>
+</div>
+
+<script>
+// 全局错误捕获
+window.addEventListener('error', function(e) {
+    console.error('Game Error:', e.message, e.filename, e.lineno);
+    const box = document.getElementById('errorBox');
+    if (box) {
+        box.style.display = 'block';
+        box.textContent = '游戏错误: ' + e.message + ' (Line ' + e.lineno + ')';
+    }
+});
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('Unhandled rejection:', e.reason);
+});
+</script>
+<script src="game.js"></script>
+</body>
+</html>
